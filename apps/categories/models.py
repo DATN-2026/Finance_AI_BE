@@ -16,8 +16,10 @@ class Category(models.Model):
         default=True
     )  # đảm bảo khi xóa category thì vẫn giữ lại các transaction liên quan, chỉ cần set is_active = False -> soft delete
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    color = models.CharField(max_length=100, null=True, blank=True)
+    icon = models.CharField(max_length=100, null=True, blank=True)
 
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

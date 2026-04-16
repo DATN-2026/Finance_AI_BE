@@ -25,4 +25,4 @@ def get_user_by_email(email: str) -> Optional[User]:
 
 def list_all_users() -> QuerySet[User]:
 
-    return User.objects.filter(status="active").order_by("-created_at")
+    return User.objects.filter(role="user").order_by("-created_at")

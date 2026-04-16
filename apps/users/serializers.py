@@ -20,9 +20,6 @@ class UpdateUserSerializer(serializers.Serializer):
 
 
 class UserResponseSerializer(serializers.Serializer):
-    """
-    Serializer for user response data.
-    """
 
     id = serializers.UUIDField(read_only=True)
     email = serializers.EmailField()

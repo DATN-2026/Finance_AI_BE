@@ -1,0 +1,96 @@
+from decimal import Decimal
+from typing import Optional
+from uuid import UUID
+
+from django.db.models import DecimalField, OuterRef, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
+
+from apps.transactions.models import Transaction
+from apps.users.models import User
+
+from .models import Budget
+
+
+def get_budget_by_id(budget_id: str, user: User) -> Optional[Budget]:
+    """
+    Get a budget by ID for a specific user.
+    Only returns the budget if it belongs to the user.
+    Accepts UUID in both formats (with/without hyphens).
+    """
+    try:
+        # Normalize the UUID string
+        budget_id = budget_id.strip()
+
+        # If UUID without hyphens (32 chars), add hyphens
+        if len(budget_id) == 32 and "-" not in budget_id:
+            budget_id = f"{budget_id[:8]}-{budget_id[8:12]}-{budget_id[12:16]}-{budget_id[16:20]}-{budget_id[20:]}"
+
+        # Convert to UUID object
+        budget_uuid = UUID(budget_id)
+        return Budget.objects.select_related("category").get(id=budget_uuid, user=user)
+    except (ValueError, Budget.DoesNotExist):
+        return None
+
+
+def get_budget_by_category_month_year(
+    user: User, category_id: str, month: int, year: int
+) -> Optional[Budget]:
+    """
+    Get a budget for a specific category, month, and year.
+    """
+    try:
+        return Budget.objects.select_related("category").get(
+            user=user, category_id=category_id, month=month, year=year
+        )
+    except Budget.DoesNotExist:
+        return None
+
+
+def list_user_budgets(
+    user: User,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    category_id: Optional[str] = None,
+):
+    """
+    List all budgets for a specific user.
+    Optionally filter by month, year, and/or category.
+    """
+    spent_amount_subquery = (
+        Transaction.objects.filter(
+            user=user,
+            category_id=OuterRef("category_id"),
+            type="expense",
+            transaction_date__month=OuterRef("month"),
+            transaction_date__year=OuterRef("year"),
+        )
+        .values("category_id")
+        .annotate(total_spent=Sum("amount"))
+        .values("total_spent")[:1]
+    )
+
+    queryset = (
+        Budget.objects.select_related("category")
+        .filter(user=user)
+        .annotate(
+            spent_amount=Coalesce(
+                Subquery(
+                    spent_amount_subquery,
+                    output_field=DecimalField(max_digits=15, decimal_places=2),
+                ),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=15, decimal_places=2),
+            )
+        )
+    )
+
+    if month is not None:
+        queryset = queryset.filter(month=month)
+
+    if year is not None:
+        queryset = queryset.filter(year=year)
+
+    if category_id:
+        queryset = queryset.filter(category_id=category_id)
+
+    return queryset.order_by("-year", "-month", "category__name")

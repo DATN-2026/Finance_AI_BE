@@ -50,6 +50,9 @@ class JwtAuthentication(BaseAuthentication):
         # We can store payload as auth for later use
         return (user, payload)
 
+    def authenticate_header(self, request: Request):
+        return "Bearer"
+
 
 class IsAuthenticated(BasePermission):
     """

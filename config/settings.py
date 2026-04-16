@@ -161,6 +161,7 @@ JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(_get_env("JWT_REFRESH_TOKEN_LIFETIME_DAYS"
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "EXCEPTION_HANDLER": "core.untils.exceptions.custom_exception_handler",
 }
 
 
@@ -168,6 +169,7 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Finance AI API",
     "DESCRIPTION": "API docs for authentication and personal finance services.",
     "VERSION": "1.0.0",
+    "SORT_OPERATION_PARAMETERS": False,
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "SECURITY": [{"BearerAuth": []}],

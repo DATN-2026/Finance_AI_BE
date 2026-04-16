@@ -4,7 +4,7 @@ Backend service for Finance AI, built with Django and Django REST Framework.
 
 ## 1) Requirements
 
-- Python 3.12+ (recommended)
+- Python 3.12+
 - MySQL server
 - Git
 
@@ -13,12 +13,6 @@ Backend service for Finance AI, built with Django and Django REST Framework.
 ```bash
 git clone https://github.com/DATN-2026/Finance_AI_BE.git
 cd Finance_AI_BE
-```
-
-If the project is already at repository root after clone, run:
-
-```bash
-cd finance_ai
 ```
 
 ## 3) Create virtual environment
@@ -41,7 +35,7 @@ source venv/bin/activate
 
 ```bash
 pip install --upgrade pip
-pip install Django djangorestframework drf-spectacular PyJWT bcrypt mysqlclient
+pip install -r requirements.txt
 ```
 
 Notes:
@@ -63,12 +57,33 @@ On Windows CMD:
 copy .env.example .env
 ```
 
-Then edit `.env` with your real values:
+Then update `.env` with real values. Required keys used by source code:
 
-- `SECRET_KEY`
-- DB settings (`DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`)
-- JWT settings
-- SMTP email settings
+```env
+SECRET_KEY=your_django_secret
+DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+
+DB_ENGINE=django.db.backends.mysql
+DB_NAME=finance_ai
+DB_USER=root
+DB_PASSWORD=your_db_password
+DB_HOST=127.0.0.1
+DB_PORT=3307
+
+JWT_SECRET_KEY=your_jwt_secret
+JWT_ALGORITHM=HS512
+JWT_ISSUER=finance_ai.com
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES=30
+JWT_REFRESH_TOKEN_LIFETIME_DAYS=7
+
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=true
+EMAIL_HOST_USER=youremail@example.com
+EMAIL_HOST_PASSWORD=your-email-password-or-app-password
+```
 
 ## 6) Run migrations
 
