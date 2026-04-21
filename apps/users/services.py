@@ -140,15 +140,3 @@ def delete_user(user_id: str) -> None:
     user.status = "inactive"
     user.updated_at = datetime.now()
     user.save(update_fields=["status", "updated_at"])
-
-
-def list_users():
-    """
-    Get all users.
-
-    Returns:
-        QuerySet of all users
-    """
-    from .selector import list_all_users
-
-    return list_all_users()

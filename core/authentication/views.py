@@ -3,23 +3,31 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
-from .serializers import ForgotPasswordRequestSerializer
-from .services import reset_password
 
 from core.untils.api_response import error_response, success_response
 
 from .serializers import (
     LoginRequestSerializer,
+    LoginResponseSerializer,
     LogoutRequestSerializer,
+    LogoutResponseSerializer,
     RefreshRequestSerializer,
+    RefreshResponseSerializer,
+    ForgotPasswordRequestSerializer,
+    ForgotPasswordResponseSerializer,
 )
-from .services import AuthServiceError, login, logout, refresh
+from .services import AuthServiceError, login, logout, refresh, reset_password
+from .permissions import JwtAuthentication
 
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
-    @extend_schema(request=LoginRequestSerializer)
+    @extend_schema(
+        request=LoginRequestSerializer,
+        responses={200: LoginResponseSerializer},
+        tags=["Authentication"],
+    )
     def post(self, request: Request):
         serializer = LoginRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -46,8 +54,13 @@ class LoginView(APIView):
 
 class RefreshTokenView(APIView):
     permission_classes = [AllowAny]
+    # authentication_classes = [JwtAuthentication]
 
-    @extend_schema(request=RefreshRequestSerializer)
+    @extend_schema(
+        request=RefreshRequestSerializer,
+        responses={200: RefreshResponseSerializer},
+        tags=["Authentication"],
+    )
     def post(self, request: Request):
         serializer = RefreshRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -72,7 +85,11 @@ class RefreshTokenView(APIView):
 class LogoutView(APIView):
     permission_classes = [AllowAny]
 
-    @extend_schema(request=LogoutRequestSerializer)
+    @extend_schema(
+        request=LogoutRequestSerializer,
+        responses={200: LogoutResponseSerializer},
+        tags=["Authentication"],
+    )
     def post(self, request: Request):
         serializer = LogoutRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -97,7 +114,11 @@ class LogoutView(APIView):
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
-    @extend_schema(request=ForgotPasswordRequestSerializer)
+    @extend_schema(
+        request=ForgotPasswordRequestSerializer,
+        responses={200: ForgotPasswordResponseSerializer},
+        tags=["Authentication"],
+    )
     def post(self, request: Request):
         serializer = ForgotPasswordRequestSerializer(data=request.data)
         if not serializer.is_valid():
