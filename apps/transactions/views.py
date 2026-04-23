@@ -1,5 +1,8 @@
+from datetime import date
+
 from rest_framework import status, viewsets
 from rest_framework.request import Request
+from rest_framework.views import APIView
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from core.authentication.permissions import IsAuthenticated, JwtAuthentication
@@ -8,18 +11,292 @@ from core.untils.pagination import PaginationHelper, PaginationQuerySerializer
 
 from .selector import list_user_transactions
 from .serializers import (
+    BalanceResponseSerializer,
+    CashflowResponseSerializer,
     CreateTransactionSerializer,
+    RecentTransactionsQuerySerializer,
+    RecentTransactionsResponseSerializer,
+    SpendingByCategoryResponseSerializer,
+    TransactionSummaryQuerySerializer,
+    TransactionSummaryResponseSerializer,
     TransactionListQuerySerializer,
     TransactionResponseSerializer,
     UpdateTransactionSerializer,
 )
 from .services import (
     TransactionServiceError,
+    get_balance_period_summary,
+    get_cashflow_period_summary,
+    get_recent_transactions,
+    get_spending_by_category_summary,
     create_transaction,
     delete_transaction,
+    get_dashboard_summary,
     get_transaction,
     update_transaction,
 )
+
+
+def _get_month_year_from_validated_data(
+    validated_data: dict[str, object],
+) -> tuple[int, int]:
+    today = date.today()
+    month = validated_data.get("month", today.month)
+    year = validated_data.get("year", today.year)
+    return int(month), int(year)
+
+
+class DashboardSummaryView(APIView):
+    authentication_classes = [JwtAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Dashboard Summary",
+        description="Get income, expenses, and balance for a month/year with comparison to the previous month.",
+        parameters=[
+            OpenApiParameter(
+                name="month",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Month (1-12). Must be used together with year.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="year",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Year (e.g. 2026). Must be used together with month.",
+                required=False,
+            ),
+        ],
+        responses={200: TransactionSummaryResponseSerializer},
+        tags=["Dashboard"],
+    )
+    def get(self, request: Request):
+        query_serializer = TransactionSummaryQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            return error_response(
+                code=5001,
+                message="Invalid query parameters",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        today = date.today()
+        month = query_serializer.validated_data.get("month", today.month)
+        year = query_serializer.validated_data.get("year", today.year)
+
+        summary_result = get_dashboard_summary(request.user, month=month, year=year)
+
+        return success_response(
+            result=summary_result, code=1000, status_code=status.HTTP_200_OK
+        )
+
+
+class CashflowView(APIView):
+    authentication_classes = [JwtAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Cashflow 12 Periods",
+        description="Get total income and expenses for 12 monthly periods ending at the provided month/year.",
+        parameters=[
+            OpenApiParameter(
+                name="month",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Month (1-12). Must be used together with year.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="year",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Year (e.g. 2026). Must be used together with month.",
+                required=False,
+            ),
+        ],
+        responses={200: CashflowResponseSerializer},
+        tags=["Dashboard"],
+    )
+    def get(self, request: Request):
+        query_serializer = TransactionSummaryQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            return error_response(
+                code=5001,
+                message="Invalid query parameters",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        month, year = _get_month_year_from_validated_data(
+            query_serializer.validated_data
+        )
+        result = get_cashflow_period_summary(request.user, month=month, year=year)
+
+        return success_response(
+            result=result, code=1000, status_code=status.HTTP_200_OK
+        )
+
+
+class SpendingByCategoryView(APIView):
+    authentication_classes = [JwtAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Spending By Category",
+        description="Get total expense amount grouped by category in the provided month/year.",
+        parameters=[
+            OpenApiParameter(
+                name="month",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Month (1-12). Must be used together with year.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="year",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Year (e.g. 2026). Must be used together with month.",
+                required=False,
+            ),
+        ],
+        responses={200: SpendingByCategoryResponseSerializer},
+        tags=["Dashboard"],
+    )
+    def get(self, request: Request):
+        query_serializer = TransactionSummaryQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            return error_response(
+                code=5001,
+                message="Invalid query parameters",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        month, year = _get_month_year_from_validated_data(
+            query_serializer.validated_data
+        )
+
+        spending_by_category = get_spending_by_category_summary(
+            request.user,
+            month=month,
+            year=year,
+        )
+
+        return success_response(
+            result=spending_by_category,
+            code=1000,
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class RecentTransactionsView(APIView):
+    authentication_classes = [JwtAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Recent Transactions",
+        description="Get recent transactions in the provided month/year.",
+        parameters=[
+            OpenApiParameter(
+                name="month",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Month (1-12). Must be used together with year.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="year",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Year (e.g. 2026). Must be used together with month.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="limit",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Maximum number of transactions to return (default: 5).",
+                required=False,
+            ),
+        ],
+        responses={200: RecentTransactionsResponseSerializer},
+        tags=["Dashboard"],
+    )
+    def get(self, request: Request):
+        query_serializer = RecentTransactionsQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            return error_response(
+                code=5001,
+                message="Invalid query parameters",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        month, year = _get_month_year_from_validated_data(
+            query_serializer.validated_data
+        )
+        limit = query_serializer.validated_data["limit"]
+
+        recent_transactions = get_recent_transactions(
+            request.user,
+            month=month,
+            year=year,
+            limit=limit,
+        )
+
+        response_serializer = TransactionResponseSerializer(
+            recent_transactions,
+            many=True,
+        )
+        return success_response(
+            result=response_serializer.data,
+            code=1000,
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class BalanceView(APIView):
+    authentication_classes = [JwtAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Balance 12 Periods",
+        description="Get total balance for 12 monthly periods ending at the provided month/year.",
+        parameters=[
+            OpenApiParameter(
+                name="month",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Month (1-12). Must be used together with year.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="year",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Year (e.g. 2026). Must be used together with month.",
+                required=False,
+            ),
+        ],
+        responses={200: BalanceResponseSerializer},
+        tags=["Dashboard"],
+    )
+    def get(self, request: Request):
+        query_serializer = TransactionSummaryQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            return error_response(
+                code=5001,
+                message="Invalid query parameters",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        month, year = _get_month_year_from_validated_data(
+            query_serializer.validated_data
+        )
+        result = get_balance_period_summary(request.user, month=month, year=year)
+
+        return success_response(
+            result=result, code=1000, status_code=status.HTTP_200_OK
+        )
 
 
 class TransactionViewSet(viewsets.ViewSet):

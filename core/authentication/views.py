@@ -5,6 +5,8 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from core.untils.api_response import error_response, success_response
+from apps.users.serializers import CreateUserSerializer, UserResponseSerializer
+from apps.users.services import UserServiceError, create_user
 
 from .serializers import (
     LoginRequestSerializer,
@@ -49,6 +51,46 @@ class LoginView(APIView):
 
         return success_response(
             result=result, code=1000, status_code=status.HTTP_200_OK
+        )
+
+
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="Register a new account",
+        description="Public endpoint for user registration.",
+        request=CreateUserSerializer,
+        responses={201: UserResponseSerializer},
+        tags=["Authentication"],
+    )
+    def post(self, request: Request):
+        serializer = CreateUserSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                code=1001,
+                message="Invalid request data",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = create_user(
+                email=serializer.validated_data["email"],
+                password=serializer.validated_data["password"],
+                name=serializer.validated_data["name"],
+            )
+        except UserServiceError as exc:
+            return error_response(
+                code=1005,
+                message=str(exc),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        response_serializer = UserResponseSerializer(user)
+        return success_response(
+            result=response_serializer.data,
+            code=1000,
+            status_code=status.HTTP_201_CREATED,
         )
 
 

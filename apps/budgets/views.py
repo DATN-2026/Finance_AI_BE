@@ -1,12 +1,17 @@
+from datetime import date
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.request import Request
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from core.untils.api_response import error_response, success_response
 from core.untils.pagination import PaginationHelper, PaginationQuerySerializer
 from core.authentication.permissions import IsAuthenticated, JwtAuthentication
+from apps.transactions.serializers import TransactionSummaryQuerySerializer
 
 from .serializers import (
+    BudgetOverviewResponseSerializer,
+    BudgetListResponseSerializer,
     CreateBudgetSerializer,
     UpdateBudgetSerializer,
     BudgetResponseSerializer,
@@ -15,6 +20,7 @@ from .services import (
     BudgetServiceError,
     create_budget,
     get_budget,
+    get_budget_overview,
     update_budget,
     delete_budget,
 )
@@ -69,7 +75,7 @@ class BudgetViewSet(viewsets.ViewSet):
         ],
         responses={
             200: PaginationHelper.get_paginated_response_serializer(
-                BudgetResponseSerializer(many=True)
+                BudgetListResponseSerializer(many=True)
             )
         },
         tags=["Budgets"],
@@ -101,13 +107,56 @@ class BudgetViewSet(viewsets.ViewSet):
             budgets_queryset, limit=limit, offset=offset
         )
 
-        response_serializer = BudgetResponseSerializer(
+        response_serializer = BudgetListResponseSerializer(
             paginated_result["items"], many=True
         )
         paginated_result["items"] = response_serializer.data
 
         return success_response(
             result=paginated_result, code=1000, status_code=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Monthly budget overview",
+        description="Return monthly total budget, total expense from transactions, remaining amount, and usage percent for the authenticated user.",
+        parameters=[
+            OpenApiParameter(
+                name="month",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Month (1-12). Must be used together with year.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="year",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Year (e.g. 2026). Must be used together with month.",
+                required=False,
+            ),
+        ],
+        responses={200: BudgetOverviewResponseSerializer},
+        tags=["Budgets"],
+    )
+    @action(detail=False, methods=["get"], url_path="overview")
+    def overview(self, request: Request):
+        query_serializer = TransactionSummaryQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            return error_response(
+                code=4001,
+                message="Invalid query parameters",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        today = date.today()
+        month = query_serializer.validated_data.get("month", today.month)
+        year = query_serializer.validated_data.get("year", today.year)
+
+        overview_result = get_budget_overview(request.user, month=month, year=year)
+        return success_response(
+            result=overview_result,
+            code=1000,
+            status_code=status.HTTP_200_OK,
         )
 
     @extend_schema(
@@ -158,7 +207,7 @@ class BudgetViewSet(viewsets.ViewSet):
                 required=True,
             ),
         ],
-        responses={200: BudgetResponseSerializer},
+        responses={200: BudgetListResponseSerializer},
         tags=["Budgets"],
     )
     def retrieve(self, request: Request, budget_id: str):
@@ -169,7 +218,7 @@ class BudgetViewSet(viewsets.ViewSet):
                 code=4003, message=str(exc), status_code=status.HTTP_404_NOT_FOUND
             )
 
-        response_serializer = BudgetResponseSerializer(budget)
+        response_serializer = BudgetListResponseSerializer(budget)
         return success_response(
             result=response_serializer.data, code=1000, status_code=status.HTTP_200_OK
         )
