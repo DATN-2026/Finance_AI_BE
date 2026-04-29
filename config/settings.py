@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "rest_framework",
     "drf_spectacular",
+    "corsheaders",
     "apps.users",
     "core.authentication",
     "apps.categories",
@@ -68,6 +69,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     # 'django.contrib.sessions.middleware.SessionMiddleware',
     "django.middleware.common.CommonMiddleware",
     # 'django.middleware.csrf.CsrfViewMiddleware',
@@ -191,3 +193,25 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+
+
+# CORS / Cookie settings
+# Provide CORS_ALLOWED_ORIGINS as a comma-separated env var, e.g. http://localhost:3000,https://frontend.example.com
+CORS_ALLOWED_ORIGINS = [
+    h.strip() for h in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if h.strip()
+]
+
+# Allow credentials (HttpOnly cookies) to be sent and received
+CORS_ALLOW_CREDENTIALS = True
+
+# In DEBUG, if no origins provided, allow common localhost ports for frontend dev
+if DEBUG and not CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+# Optional: CSRF trusted origins (comma-separated env var)
+CSRF_TRUSTED_ORIGINS = [
+    h.strip() for h in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if h.strip()
+]
