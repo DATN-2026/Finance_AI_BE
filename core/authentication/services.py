@@ -56,6 +56,7 @@ def login(email: str, password: str) -> dict:
         "authenticated": True,
         "accessToken": access_token,
         "refreshToken": refresh_token,
+        "user": user,
     }
 
 

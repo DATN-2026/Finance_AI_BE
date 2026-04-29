@@ -33,3 +33,6 @@ rpds-py==0.30.0
 attrs==26.1.0
 
 
+django-cors-headers==3.13.0
+
+

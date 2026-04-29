@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -20,6 +21,32 @@ from .serializers import (
 )
 from .services import AuthServiceError, login, logout, refresh, reset_password
 from .permissions import JwtAuthentication
+
+
+REFRESH_COOKIE_NAME = "refreshToken"
+REFRESH_COOKIE_MAX_AGE = settings.JWT_REFRESH_TOKEN_LIFETIME_DAYS * 24 * 60 * 60
+
+
+def _set_refresh_cookie(response, refresh_token: str):
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        max_age=REFRESH_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="Lax",
+    )
+
+
+def _delete_refresh_cookie(response):
+    response.delete_cookie(REFRESH_COOKIE_NAME)
+
+
+def _get_refresh_token_from_request(request: Request, validated_data: dict) -> str:
+    token = validated_data.get("refreshToken") or request.COOKIES.get(
+        REFRESH_COOKIE_NAME
+    )
+    return token or ""
 
 
 class LoginView(APIView):
@@ -49,9 +76,18 @@ class LoginView(APIView):
                 code=1002, message=str(exc), status_code=status.HTTP_401_UNAUTHORIZED
             )
 
-        return success_response(
-            result=result, code=1000, status_code=status.HTTP_200_OK
+        response = success_response(
+            result={
+                "authenticated": result["authenticated"],
+                "accessToken": result["accessToken"],
+                "refreshToken": result["refreshToken"],
+                "user": UserResponseSerializer(result["user"]).data,
+            },
+            code=1000,
+            status_code=status.HTTP_200_OK,
         )
+        _set_refresh_cookie(response, result["refreshToken"])
+        return response
 
 
 class RegisterView(APIView):
@@ -112,16 +148,28 @@ class RefreshTokenView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        refresh_token = _get_refresh_token_from_request(
+            request, serializer.validated_data
+        )
+        if not refresh_token:
+            return error_response(
+                code=1001,
+                message="Refresh token is required",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
-            result = refresh(serializer.validated_data["refreshToken"])
+            result = refresh(refresh_token)
         except AuthServiceError as exc:
             return error_response(
                 code=1003, message=str(exc), status_code=status.HTTP_401_UNAUTHORIZED
             )
 
-        return success_response(
+        response = success_response(
             result=result, code=1000, status_code=status.HTTP_200_OK
         )
+        _set_refresh_cookie(response, result["refreshToken"])
+        return response
 
 
 class LogoutView(APIView):
@@ -141,16 +189,28 @@ class LogoutView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        refresh_token = _get_refresh_token_from_request(
+            request, serializer.validated_data
+        )
+        if not refresh_token:
+            return error_response(
+                code=1001,
+                message="Refresh token is required",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
-            logout(serializer.validated_data["refreshToken"])
+            logout(refresh_token)
         except AuthServiceError as exc:
             return error_response(
                 code=1004, message=str(exc), status_code=status.HTTP_401_UNAUTHORIZED
             )
 
-        return success_response(
+        response = success_response(
             result={"loggedOut": True}, code=1000, status_code=status.HTTP_200_OK
         )
+        _delete_refresh_cookie(response)
+        return response
 
 
 class ForgotPasswordView(APIView):
