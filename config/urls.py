@@ -22,6 +22,14 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from apps.transactions.views import (
+    BalanceView,
+    CashflowView,
+    DashboardSummaryView,
+    RecentTransactionsView,
+    SpendingByCategoryView,
+)
+
 urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path(
@@ -35,6 +43,23 @@ urlpatterns = [
         name="api-redoc",
     ),
     path("api/auth/", include("core.authentication.urls")),
+    path(
+        "api/summary/",
+        DashboardSummaryView.as_view(),
+        name="dashboard-summary",
+    ),
+    path("api/cashflow/", CashflowView.as_view(), name="cashflow"),
+    path(
+        "api/spending-by-category/",
+        SpendingByCategoryView.as_view(),
+        name="spending-by-category",
+    ),
+    path(
+        "api/recent-transactions/",
+        RecentTransactionsView.as_view(),
+        name="recent-transactions",
+    ),
+    path("api/balance/", BalanceView.as_view(), name="balance"),
     path("api/users/", include("apps.users.urls")),
     path("api/categories/", include("apps.categories.urls")),
     path("api/transactions/", include("apps.transactions.urls")),

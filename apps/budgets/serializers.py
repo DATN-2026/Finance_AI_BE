@@ -34,3 +34,29 @@ class BudgetResponseSerializer(serializers.Serializer):
     year = serializers.IntegerField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
+
+
+class BudgetListResponseSerializer(BudgetResponseSerializer):
+    percent = serializers.DecimalField(max_digits=7, decimal_places=2, read_only=True)
+    status = serializers.ChoiceField(
+        choices=["over", "warning", "safe"],
+        read_only=True,
+    )
+
+
+class BudgetOverviewPeriodSerializer(serializers.Serializer):
+    month = serializers.IntegerField()
+    year = serializers.IntegerField()
+
+
+class BudgetOverviewResultSerializer(serializers.Serializer):
+    period = BudgetOverviewPeriodSerializer()
+    total_budget = serializers.DecimalField(max_digits=15, decimal_places=2)
+    total_spent = serializers.DecimalField(max_digits=15, decimal_places=2)
+    remaining = serializers.DecimalField(max_digits=15, decimal_places=2)
+    usage_percent = serializers.FloatField(allow_null=True)
+
+
+class BudgetOverviewResponseSerializer(serializers.Serializer):
+    code = serializers.IntegerField(default=1000)
+    result = BudgetOverviewResultSerializer()
