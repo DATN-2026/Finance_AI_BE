@@ -51,6 +51,7 @@ def list_user_categories(
             category_id=OuterRef("id"),
             transaction_date__month=filter_month,
             transaction_date__year=filter_year,
+            is_deleted=False,
         )
         .values("category_id")
         .annotate(total_transactions=Count("id"))

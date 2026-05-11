@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
 
@@ -27,7 +27,7 @@ def create_transaction(
     category_id: str,
     amount: Decimal,
     transaction_date: date,
-    note: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> Transaction:
     """
     Create a transaction for the authenticated user.
@@ -43,7 +43,7 @@ def create_transaction(
             category=category,
             type=category.type,
             amount=amount,
-            note=note,
+            description=description,
             transaction_date=transaction_date,
         )
         return transaction
@@ -63,7 +63,7 @@ def update_transaction(
     user: User,
     category_id: Optional[str] = None,
     amount: Optional[Decimal] = None,
-    note: Optional[str] = None,
+    description: Optional[str] = None,
     transaction_date: Optional[date] = None,
 ) -> Transaction:
     transaction = get_transaction_by_id(transaction_id, user)
@@ -82,8 +82,8 @@ def update_transaction(
     if amount is not None:
         transaction.amount = amount
 
-    if note is not None:
-        transaction.note = note
+    if description is not None:
+        transaction.description = description
 
     if transaction_date is not None:
         transaction.transaction_date = transaction_date
@@ -99,8 +99,10 @@ def delete_transaction(transaction_id: str, user: User) -> None:
     transaction = get_transaction_by_id(transaction_id, user)
     if not transaction:
         raise TransactionServiceError("Transaction not found")
-
-    transaction.delete()
+    # Soft delete: mark as deleted instead of physical removal
+    transaction.is_deleted = True
+    transaction.updated_at = datetime.now()
+    transaction.save(update_fields=["is_deleted", "updated_at"])
 
 
 def _to_money(value: Decimal) -> Decimal:

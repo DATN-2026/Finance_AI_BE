@@ -9,6 +9,7 @@ from .selector import (
     get_budget_by_category_month_year,
     get_budget_by_id,
     get_monthly_budget_totals,
+    get_over_budget_categories_count,
 )
 
 
@@ -132,10 +133,15 @@ def get_budget_overview(user: User, month: int, year: int) -> dict[str, object]:
             )
         )
 
+    over_budget_categories = get_over_budget_categories_count(
+        user=user, month=month, year=year
+    )
+
     return {
         "period": {"month": month, "year": year},
         "total_budget": total_budget,
         "total_spent": total_spent,
         "remaining": remaining,
         "usage_percent": usage_percent,
+        "over_budget_categories_count": over_budget_categories,
     }

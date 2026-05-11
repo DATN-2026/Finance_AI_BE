@@ -171,7 +171,7 @@ class BudgetViewSet(viewsets.ViewSet):
         if not serializer.is_valid():
             return error_response(
                 code=4001,
-                message="Invalid request data",
+                message=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -244,7 +244,7 @@ class BudgetViewSet(viewsets.ViewSet):
         if not serializer.is_valid():
             return error_response(
                 code=4001,
-                message="Invalid request data",
+                message=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 

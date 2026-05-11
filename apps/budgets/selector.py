@@ -30,6 +30,7 @@ def _get_budget_queryset_with_spending_annotations(user: User):
             type="expense",
             transaction_date__month=OuterRef("month"),
             transaction_date__year=OuterRef("year"),
+            is_deleted=False,
         )
         .values("category_id")
         .annotate(total_spent=Sum("amount"))
@@ -148,9 +149,19 @@ def get_monthly_budget_totals(user: User, month: int, year: int) -> dict[str, De
         type="expense",
         transaction_date__month=month,
         transaction_date__year=year,
+        is_deleted=False,
     ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
 
     return {
         "total_budget": total_budget,
         "total_spent": total_spent,
     }
+
+
+def get_over_budget_categories_count(user: User, month: int, year: int) -> int:
+    return (
+        _get_budget_queryset_with_spending_annotations(user=user)
+        .filter(month=month, year=year)
+        .filter(spent_amount__gt=F("amount"))
+        .count()
+    )
