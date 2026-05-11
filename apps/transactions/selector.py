@@ -13,17 +13,9 @@ from .models import Transaction
 def get_transaction_by_id(transaction_id: str, user: User) -> Optional[Transaction]:
 
     try:
-        # normalized_id = transaction_id.strip()
-
-        # if len(normalized_id) == 32 and "-" not in normalized_id:
-        #     normalized_id = (
-        #         f"{normalized_id[:8]}-{normalized_id[8:12]}-{normalized_id[12:16]}-"
-        #         f"{normalized_id[16:20]}-{normalized_id[20:]}"
-        #     )
-
         transaction_uuid = UUID(transaction_id)
         return Transaction.objects.select_related("category").get(
-            id=transaction_uuid, user=user
+            id=transaction_uuid, user=user, is_deleted=False
         )
     except (ValueError, Transaction.DoesNotExist):
         return None
@@ -39,7 +31,9 @@ def list_user_transactions(
     """
     List transactions for a specific user with optional filters.
     """
-    queryset = Transaction.objects.select_related("category").filter(user=user)
+    queryset = Transaction.objects.select_related("category").filter(
+        user=user, is_deleted=False
+    )
 
     if type:
         queryset = queryset.filter(type=type)
@@ -59,10 +53,13 @@ def list_user_transactions(
 def get_monthly_transaction_totals(
     user: User, month: int, year: int
 ) -> dict[str, Decimal]:
-    totals = Transaction.objects.filter(
-        user=user,
-        transaction_date__month=month,
-        transaction_date__year=year,
+    totals = (
+        Transaction.objects.filter(
+            user=user,
+            transaction_date__month=month,
+            transaction_date__year=year,
+            is_deleted=False,
+        )
     ).aggregate(
         income=Sum("amount", filter=Q(type="income")),
         expenses=Sum("amount", filter=Q(type="expense")),
@@ -85,6 +82,7 @@ def get_spending_by_category(user: User, month: int, year: int):
             type="expense",
             transaction_date__month=month,
             transaction_date__year=year,
+            is_deleted=False,
         )
         .values(
             "category_id",
@@ -105,6 +103,7 @@ def list_recent_transactions_by_month(user: User, month: int, year: int, limit: 
             user=user,
             transaction_date__month=month,
             transaction_date__year=year,
+            is_deleted=False,
         )
         .order_by("-transaction_date", "-created_at")[:limit]
     )

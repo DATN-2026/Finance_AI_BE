@@ -6,14 +6,27 @@ from apps.categories.serializers import CategorySerializer
 
 class CreateBudgetSerializer(serializers.Serializer):
     category_id = serializers.UUIDField()
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0)
+    amount = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        min_value=Decimal("50000"),
+        error_messages={
+            "min_value": "Budget amount must be at least 50,000.",
+        },
+    )
     month = serializers.IntegerField(min_value=1, max_value=12)
     year = serializers.IntegerField(min_value=2000, max_value=2100)
 
 
 class UpdateBudgetSerializer(serializers.Serializer):
     amount = serializers.DecimalField(
-        max_digits=15, decimal_places=2, min_value=0, required=False
+        max_digits=15,
+        decimal_places=2,
+        min_value=Decimal("50000"),
+        error_messages={
+            "min_value": "Budget amount must be at least 50,000.",
+        },
+        required=False,
     )
     month = serializers.IntegerField(min_value=1, max_value=12, required=False)
     year = serializers.IntegerField(min_value=2000, max_value=2100, required=False)
@@ -55,6 +68,7 @@ class BudgetOverviewResultSerializer(serializers.Serializer):
     total_spent = serializers.DecimalField(max_digits=15, decimal_places=2)
     remaining = serializers.DecimalField(max_digits=15, decimal_places=2)
     usage_percent = serializers.FloatField(allow_null=True)
+    over_budget_categories_count = serializers.IntegerField()
 
 
 class BudgetOverviewResponseSerializer(serializers.Serializer):

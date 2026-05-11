@@ -421,7 +421,7 @@ class TransactionViewSet(viewsets.ViewSet):
                 user=request.user,
                 category_id=str(serializer.validated_data["category_id"]),
                 amount=serializer.validated_data["amount"],
-                note=serializer.validated_data.get("note"),
+                description=serializer.validated_data.get("description"),
                 transaction_date=serializer.validated_data["transaction_date"],
             )
         except TransactionServiceError as exc:
@@ -499,7 +499,7 @@ class TransactionViewSet(viewsets.ViewSet):
                 user=request.user,
                 category_id=category_id,
                 amount=data.get("amount"),
-                note=data.get("note"),
+                description=data.get("description"),
                 transaction_date=data.get("transaction_date"),
             )
         except TransactionServiceError as exc:

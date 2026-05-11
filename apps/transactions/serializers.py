@@ -9,7 +9,9 @@ class CreateTransactionSerializer(serializers.Serializer):
     amount = serializers.DecimalField(
         max_digits=15, decimal_places=2, min_value=Decimal("0.01")
     )
-    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    description = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
     transaction_date = serializers.DateField()
 
 
@@ -21,7 +23,9 @@ class UpdateTransactionSerializer(serializers.Serializer):
         min_value=Decimal("0.01"),
         required=False,
     )
-    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    description = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
     transaction_date = serializers.DateField(required=False)
 
 
@@ -69,7 +73,7 @@ class TransactionResponseSerializer(serializers.Serializer):
     category = CategorySerializer()
     type = serializers.CharField()
     amount = serializers.DecimalField(max_digits=15, decimal_places=2)
-    note = serializers.CharField(allow_null=True, allow_blank=True)
+    description = serializers.CharField(allow_null=True, allow_blank=True)
     transaction_date = serializers.DateField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
