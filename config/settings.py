@@ -54,7 +54,7 @@ ALLOWED_HOSTS = [h.strip() for h in _get_env("ALLOWED_HOSTS").split(",") if h.st
 # Application definition
 
 INSTALLED_APPS = [
-    # "django.contrib.auth",
+    "django.contrib.auth",
     "django.contrib.contenttypes",
     "rest_framework",
     "drf_spectacular",
