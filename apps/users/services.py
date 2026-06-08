@@ -2,8 +2,9 @@ from datetime import datetime
 from typing import Optional
 
 from django.contrib.auth.hashers import make_password
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
+from apps.categories.services import copy_default_categories_to_user
 from .models import User
 from .selector import get_user_by_email, get_user_by_id
 
@@ -31,11 +32,14 @@ def create_user(email: str, password: str, name: str) -> User:
         raise UserServiceError("Email already exists", ERR_EMAIL_EXISTS)
 
     try:
-        return User.objects.create(
-            email=email.lower(),
-            password=make_password(password),
-            name=name,
-        )
+        with transaction.atomic():
+            user = User.objects.create(
+                email=email.lower(),
+                password=make_password(password),
+                name=name,
+            )
+            copy_default_categories_to_user(user)
+            return user
     except IntegrityError as exc:
         raise UserServiceError("Failed to create user", ERR_CREATE_FAILED) from exc
 

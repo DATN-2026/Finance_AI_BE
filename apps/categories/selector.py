@@ -7,7 +7,7 @@ from django.db.models.functions import Coalesce
 from apps.transactions.models import Transaction
 from apps.users.models import User
 
-from .models import Category
+from .models import Category, DefaultCategory
 
 
 def get_category_by_id(category_id: str, user: User) -> Optional[Category]:
@@ -68,5 +68,54 @@ def list_user_categories(
 
     if type:
         queryset = queryset.filter(type=type)
+
+    return queryset.order_by("-created_at")
+
+
+def get_default_category_by_id(default_category_id: str) -> Optional[DefaultCategory]:
+    try:
+        return DefaultCategory.objects.get(id=default_category_id)
+    except DefaultCategory.DoesNotExist:
+        return None
+
+
+def list_default_categories(
+    type: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    search: Optional[str] = None,
+):
+    queryset = DefaultCategory.objects.all()
+
+    if type:
+        queryset = queryset.filter(type=type)
+
+    if is_active is not None:
+        queryset = queryset.filter(is_active=is_active)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+
+    return queryset.order_by("sort_order", "name")
+
+
+def list_admin_user_categories(
+    user_id: Optional[str] = None,
+    type: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    search: Optional[str] = None,
+):
+    queryset = Category.objects.select_related("user").all()
+
+    if user_id:
+        queryset = queryset.filter(user_id=user_id)
+
+    if type:
+        queryset = queryset.filter(type=type)
+
+    if is_active is not None:
+        queryset = queryset.filter(is_active=is_active)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
 
     return queryset.order_by("-created_at")

@@ -62,7 +62,9 @@ urlpatterns = [
     path("api/balance/", BalanceView.as_view(), name="balance"),
     path("api/users/", include("apps.users.urls")),
     path("api/categories/", include("apps.categories.urls")),
+    path("api/admin/categories/", include("apps.categories.admin_urls")),
     path("api/transactions/", include("apps.transactions.urls")),
     path("api/budgets/", include("apps.budgets.urls")),
     path("api/chats/", include("apps.chats.urls")),
+    path("api/admin/dashboard/", include("apps.admin_dashboard.urls")),
 ]

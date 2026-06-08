@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "apps.transactions",
     "apps.budgets",
     "apps.chats",
+    "apps.admin_dashboard",
 ]
 
 MIDDLEWARE = [
@@ -158,6 +159,7 @@ JWT_ALGORITHM = _get_env("JWT_ALGORITHM")
 JWT_ISSUER = _get_env("JWT_ISSUER")
 JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(_get_env("JWT_ACCESS_TOKEN_LIFETIME_MINUTES"))
 JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(_get_env("JWT_REFRESH_TOKEN_LIFETIME_DAYS"))
+CHAT_ADMIN_DELETE_RETENTION_DAYS = int(os.getenv("CHAT_ADMIN_DELETE_RETENTION_DAYS"))
 
 
 REST_FRAMEWORK = {
