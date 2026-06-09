@@ -16,5 +16,11 @@ class AIChatMessage(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    deleted_by_user_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    deleted_by_admin_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    purge_after = models.DateTimeField(null=True, blank=True, db_index=True)
+
     class Meta:
         db_table = "ai_chat_messages"

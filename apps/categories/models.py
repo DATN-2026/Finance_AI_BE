@@ -30,3 +30,28 @@ class Category(models.Model):
                 name="unique_active_category_name",
             )
         ]
+
+
+class DefaultCategory(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    name = models.CharField(max_length=100)
+    type = models.CharField(max_length=20)
+
+    is_active = models.BooleanField(default=True)
+    color = models.CharField(max_length=100, null=True, blank=True)
+    icon = models.CharField(max_length=100, null=True, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "default_categories"
+        constraints = [
+            UniqueConstraint(
+                fields=["name", "type"],
+                name="unique_default_category_name_type",
+            )
+        ]
+        ordering = ["sort_order", "name"]

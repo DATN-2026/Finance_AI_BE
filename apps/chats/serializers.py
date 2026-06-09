@@ -86,3 +86,81 @@ class ChatDeleteHistoryResultSerializer(serializers.Serializer):
 class ChatDeleteHistoryResponseSerializer(serializers.Serializer):
     code = serializers.IntegerField(default=1000)
     result = ChatDeleteHistoryResultSerializer()
+
+
+class AdminAIRequestQuerySerializer(serializers.Serializer):
+    user_id = serializers.UUIDField(required=False)
+    status = serializers.ChoiceField(
+        choices=["success", "failed", "partial", "error"], required=False
+    )
+    intent = serializers.ChoiceField(
+        choices=["transaction_batch", "financial_question", "greeting", "unknown"],
+        required=False,
+    )
+    model = serializers.CharField(required=False, allow_blank=False)
+    start_date = serializers.DateField(required=False)
+    end_date = serializers.DateField(required=False)
+
+
+class AdminAIOverviewSerializer(serializers.Serializer):
+    total_requests = serializers.IntegerField()
+    success_count = serializers.IntegerField()
+    failed_count = serializers.IntegerField()
+    partial_count = serializers.IntegerField()
+    success_rate = serializers.FloatField()
+    avg_latency_ms = serializers.FloatField()
+    p95_latency_ms = serializers.IntegerField()
+    intent_distribution = serializers.DictField(
+        child=serializers.IntegerField(), default={}
+    )
+
+
+class AdminAIOverviewResponseSerializer(serializers.Serializer):
+    code = serializers.IntegerField(default=1000)
+    result = AdminAIOverviewSerializer()
+
+
+class AdminAIRequestListItemSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    user_id = serializers.UUIDField()
+    user_email = serializers.EmailField()
+    user_message = serializers.CharField(allow_null=True, required=False)
+    assistant_message = serializers.CharField()
+    intent = serializers.CharField(allow_null=True, required=False)
+    status = serializers.CharField(allow_null=True, required=False)
+    model = serializers.CharField(allow_null=True, required=False)
+    latency_ms = serializers.IntegerField(allow_null=True, required=False)
+    created_at = serializers.DateTimeField()
+
+
+class AdminAIRequestDetailSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    user_id = serializers.UUIDField()
+    user_email = serializers.EmailField()
+    user_message = serializers.CharField(allow_null=True, required=False)
+    assistant_message = serializers.CharField()
+    metadata = serializers.JSONField(allow_null=True, required=False)
+    created_at = serializers.DateTimeField()
+
+
+class AdminAIRequestDetailResponseSerializer(serializers.Serializer):
+    code = serializers.IntegerField(default=1000)
+    result = AdminAIRequestDetailSerializer()
+
+
+class AdminAIRequestDeleteResultSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    deleted = serializers.IntegerField()
+    purge_after = serializers.DateTimeField()
+
+
+class AdminAIRequestDeleteResponseSerializer(serializers.Serializer):
+    code = serializers.IntegerField(default=1000)
+    result = AdminAIRequestDeleteResultSerializer()
+
+
+class AdminAIErrorItemSerializer(serializers.Serializer):
+    error_type = serializers.CharField()
+    message = serializers.CharField()
+    count = serializers.IntegerField()
+    last_seen_at = serializers.DateTimeField()
