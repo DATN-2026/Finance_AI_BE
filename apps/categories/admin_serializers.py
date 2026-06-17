@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.untils.pagination import MetaSerializer
+
 
 class OptionalBooleanField(serializers.Field):
     default_error_messages = {"invalid": "Invalid boolean value for is_active"}
@@ -36,6 +38,13 @@ class DefaultCategoryListQuerySerializer(serializers.Serializer):
         max_length=100,
         help_text="Search by category name. Example: Food.",
     )
+
+
+class DefaultCategoryListStatsSerializer(serializers.Serializer):
+    total_default_templates = serializers.IntegerField()
+    total_active_defaults = serializers.IntegerField()
+    total_expense_types = serializers.IntegerField()
+    total_income_types = serializers.IntegerField()
 
 
 class AdminUserCategoryListQuerySerializer(serializers.Serializer):
@@ -174,6 +183,17 @@ class DefaultCategoryResponseSerializer(serializers.Serializer):
     is_active = serializers.BooleanField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
+
+
+class DefaultCategoryListResultSerializer(serializers.Serializer):
+    items = DefaultCategoryResponseSerializer(many=True)
+    meta = MetaSerializer()
+    stats = DefaultCategoryListStatsSerializer()
+
+
+class DefaultCategoryListSuccessResponseSerializer(serializers.Serializer):
+    code = serializers.IntegerField(default=1000)
+    result = DefaultCategoryListResultSerializer()
 
 
 class AdminUserCategoryResponseSerializer(serializers.Serializer):

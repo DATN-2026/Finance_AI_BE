@@ -21,6 +21,17 @@ NON_TRANSACTION_INTENTS: Final[tuple[str, ...]] = (
     INTENT_UNKNOWN,
 )
 
+# Subject scopes returned for financial questions.
+SUBJECT_SCOPE_SELF: Final[str] = "self"
+SUBJECT_SCOPE_OTHER_PERSON: Final[str] = "other_person"
+SUBJECT_SCOPE_AMBIGUOUS: Final[str] = "ambiguous"
+
+FINANCIAL_SUBJECT_SCOPES: Final[tuple[str, ...]] = (
+    SUBJECT_SCOPE_SELF,
+    SUBJECT_SCOPE_OTHER_PERSON,
+    SUBJECT_SCOPE_AMBIGUOUS,
+)
+
 # Rejected action reasons returned by the LLM.
 REJECTED_ACTION_REASONS: Final[tuple[str, ...]] = (
     "missing_amount",

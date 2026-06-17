@@ -20,6 +20,7 @@ from .serializers import (
     UpdateUserSerializer,
     UserDetailResponseSerializer,
     UserListQuerySerializer,
+    UserListSuccessResponseSerializer,
     UserResponseSerializer,
     UserUsageQuerySerializer,
 )
@@ -35,7 +36,7 @@ from .services import (
     get_user,
     update_user,
 )
-from .selector import get_user_usage_stats, list_all_users
+from .selector import get_user_list_stats, get_user_usage_stats, list_all_users
 
 
 class UserViewSet(viewsets.ViewSet):
@@ -115,9 +116,7 @@ class UserViewSet(viewsets.ViewSet):
             ),
         ],
         responses={
-            200: PaginationHelper.get_paginated_response_serializer(
-                UserResponseSerializer
-            )
+            200: UserListSuccessResponseSerializer
         },
         tags=["Users"],
     )
@@ -156,6 +155,7 @@ class UserViewSet(viewsets.ViewSet):
             paginated_result["items"], many=True
         )
         paginated_result["items"] = response_serializer.data
+        paginated_result["stats"] = get_user_list_stats()
 
         return success_response(
             result=paginated_result, code=1000, status_code=status.HTTP_200_OK

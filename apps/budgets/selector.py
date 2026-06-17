@@ -139,14 +139,49 @@ def list_user_budgets(
     return queryset.order_by("-percent", "-year", "-month", "category__name")
 
 
-def get_monthly_budget_totals(user: User, month: int, year: int) -> dict[str, Decimal]:
-    total_budget = Budget.objects.filter(user=user, month=month, year=year).aggregate(
-        total=Sum("amount")
-    )["total"] or Decimal("0.00")
+# def get_monthly_budget_totals(user: User, month: int, year: int) -> dict[str, Decimal]:
+#     total_budget = Budget.objects.filter(user=user, month=month, year=year).aggregate(
+#         total=Sum("amount")
+#     )["total"] or Decimal("0.00")
+
+#     total_spent = Transaction.objects.filter(
+#         user=user,
+#         type="expense",
+#         transaction_date__month=month,
+#         transaction_date__year=year,
+#         is_deleted=False,
+#     ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+#     return {
+#         "total_budget": total_budget,
+#         "total_spent": total_spent,
+#     }
+
+
+def get_monthly_budget_totals(
+    user: User,
+    month: int,
+    year: int,
+) -> dict[str, Decimal]:
+    budget_queryset = Budget.objects.filter(
+        user=user,
+        month=month,
+        year=year,
+    )
+
+    total_budget = budget_queryset.aggregate(total=Sum("amount"))["total"] or Decimal(
+        "0.00"
+    )
+
+    budget_category_ids = budget_queryset.values_list(
+        "category_id",
+        flat=True,
+    )
 
     total_spent = Transaction.objects.filter(
         user=user,
         type="expense",
+        category_id__in=budget_category_ids,
         transaction_date__month=month,
         transaction_date__year=year,
         is_deleted=False,
@@ -165,3 +200,17 @@ def get_over_budget_categories_count(user: User, month: int, year: int) -> int:
         .filter(spent_amount__gt=F("amount"))
         .count()
     )
+
+
+def get_monthly_budget_compliance(user: User, month: int, year: int) -> dict[str, int]:
+    queryset = _get_budget_queryset_with_spending_annotations(user=user).filter(
+        month=month,
+        year=year,
+    )
+
+    return {
+        "total_budget_categories": queryset.count(),
+        "over_budget_categories_count": queryset.filter(
+            spent_amount__gt=F("amount")
+        ).count(),
+    }

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.untils.pagination import MetaSerializer
+
 
 class CreateUserSerializer(serializers.Serializer):
 
@@ -28,6 +30,24 @@ class UserResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
+
+
+class UserListStatsSerializer(serializers.Serializer):
+    total_users = serializers.IntegerField()
+    total_active = serializers.IntegerField()
+    total_inactive = serializers.IntegerField()
+    total_admins = serializers.IntegerField()
+
+
+class UserListResultSerializer(serializers.Serializer):
+    items = UserResponseSerializer(many=True)
+    meta = MetaSerializer()
+    stats = UserListStatsSerializer()
+
+
+class UserListSuccessResponseSerializer(serializers.Serializer):
+    code = serializers.IntegerField(default=1000)
+    result = UserListResultSerializer()
 
 
 class UserListQuerySerializer(serializers.Serializer):

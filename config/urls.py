@@ -26,6 +26,7 @@ from apps.transactions.views import (
     BalanceView,
     CashflowView,
     DashboardSummaryView,
+    FinancialHealthScoreView,
     RecentTransactionsView,
     SpendingByCategoryView,
 )
@@ -49,6 +50,11 @@ urlpatterns = [
         name="dashboard-summary",
     ),
     path("api/cashflow/", CashflowView.as_view(), name="cashflow"),
+    path(
+        "api/financial-health-score/",
+        FinancialHealthScoreView.as_view(),
+        name="financial-health-score",
+    ),
     path(
         "api/spending-by-category/",
         SpendingByCategoryView.as_view(),

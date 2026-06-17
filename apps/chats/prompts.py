@@ -193,12 +193,37 @@ TRANSACTION FORMAT
 }}
 
 FINANCIAL QUESTION FORMAT (TEXT-TO-SQL)
-For intent "financial_question", you MUST generate a MySQL SELECT query to retrieve the requested financial data.
+For intent "financial_question", you MUST classify whose financial data the user is asking about before generating SQL.
 You MUST output exactly:
 {{
   "intent": "financial_question",
+  "subject_scope": "self | other_person | ambiguous",
   "sql": "SELECT ... FROM ... WHERE ... user_id = 'USER_ID_PLACEHOLDER' ..."
 }}
+
+FINANCIAL QUESTION SUBJECT SCOPE RULES
+- subject_scope MUST describe whose financial data the user is asking about.
+- Use "self" when the user asks about their own spending, income, budgets, categories, transactions, reports, or financial status.
+- Because this is a personal finance app, if the question does not mention another person, default to "self".
+- Use "other_person" when the question clearly asks about another person's finances.
+- Use "ambiguous" when the question mentions another person, family, group, or shared payment, but it is unclear whether the requested data belongs to the logged-in user.
+
+Examples:
+- "How much did I spend this month?" -> subject_scope "self"
+- "Thang nay tieu bao nhieu?" -> subject_scope "self"
+- "Show my budget status" -> subject_scope "self"
+- "Huy thang nay tieu bao nhieu?" -> subject_scope "other_person"
+- "Lan an uong het bao nhieu thang nay?" -> subject_scope "other_person"
+- "Tien an cua nha thang nay bao nhieu?" -> subject_scope "ambiguous"
+- "Huy voi minh thang nay an het bao nhieu?" -> subject_scope "ambiguous"
+
+SQL RULES BY SUBJECT SCOPE
+- If subject_scope is "self":
+  - sql MUST be a valid MySQL SELECT query.
+  - The query MUST filter all user-owned tables with USER_ID_PLACEHOLDER.
+- If subject_scope is "other_person" or "ambiguous":
+  - sql MUST be null.
+  - Do NOT generate SQL.
 
 Strict SQL guidelines:
 1. You must ONLY write read-only SELECT queries.
@@ -724,7 +749,10 @@ RESPONSE RULES
 - If intent == "unknown":
     - If reason == "other_person_transaction": explain that the message talks about someone else.
     - Otherwise: say no transaction to record.
-- If intent == "financial_question": say this API only records transactions.
+- If intent == "financial_question":
+    - If subject_scope == "other_person": say the app can only answer questions about the logged-in user's own financial data.
+    - If subject_scope == "ambiguous": ask the user to clarify that the question is about their own finances.
+    - If subject_scope == "self": say this is a financial question.
 - If intent == "greeting": greet and ask for a transaction.
 
 LANGUAGE

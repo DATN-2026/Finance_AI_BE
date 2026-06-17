@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from django.db.models import Count, IntegerField, OuterRef, Subquery, Value
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Coalesce
 
 from apps.transactions.models import Transaction
@@ -96,6 +96,15 @@ def list_default_categories(
         queryset = queryset.filter(name__icontains=search)
 
     return queryset.order_by("sort_order", "name")
+
+
+def get_default_category_list_stats() -> dict[str, int]:
+    return DefaultCategory.objects.aggregate(
+        total_default_templates=Count("id"),
+        total_active_defaults=Count("id", filter=Q(is_active=True)),
+        total_expense_types=Count("id", filter=Q(type="expense")),
+        total_income_types=Count("id", filter=Q(type="income")),
+    )
 
 
 def list_admin_user_categories(

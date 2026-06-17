@@ -21,17 +21,91 @@ from apps.users.models import User
 from .models import AIChatMessage
 from .intent_constants import (
     ALL_INTENTS,
+    FINANCIAL_SUBJECT_SCOPES,
     INTENT_FINANCIAL_QUESTION,
     INTENT_GREETING,
     INTENT_TRANSACTION_BATCH,
     INTENT_UNKNOWN,
     REJECTED_ACTION_REASONS,
+    SUBJECT_SCOPE_AMBIGUOUS,
+    SUBJECT_SCOPE_OTHER_PERSON,
+    SUBJECT_SCOPE_SELF,
     UNKNOWN_REASON_OTHER_PERSON,
+)
+
+FINANCIAL_OTHER_PERSON_MESSAGE = (
+    "I can only answer questions about your own financial data. "
+    "I can't access or analyze another person's finances."
+)
+
+FINANCIAL_AMBIGUOUS_MESSAGE = (
+    "I'm not sure whose financial data you're asking about. "
+    "I can only answer questions about your own finances, so please rephrase "
+    "the question to make it clear it's about you."
 )
 
 _MONEY_PATTERN = re.compile(
     r"(?i)(?:\b\d+(?:[\.,]\d+)?\s*(?:k|tr|trieu|cu|xi|vnd|đ|d)?\b)",
     flags=re.UNICODE,
+)
+
+_FINANCIAL_QUESTION_SCOPE_TERMS = (
+    "bao nhiêu",
+    "bao nhieu",
+    "chi tiêu",
+    "chi tieu",
+    "tiêu",
+    "tieu",
+    "thu nhập",
+    "thu nhap",
+    "ngân sách",
+    "ngan sach",
+    "giao dịch",
+    "giao dich",
+    "spend",
+    "spent",
+    "income",
+    "budget",
+    "transaction",
+)
+
+_AMBIGUOUS_FINANCIAL_SCOPE_MARKERS = (
+    "với mình",
+    "voi minh",
+    "với tôi",
+    "voi toi",
+    "của nhà",
+    "cua nha",
+    "gia đình",
+    "gia dinh",
+    "household",
+    "shared",
+)
+
+_SELF_FINANCIAL_SCOPE_MARKERS = (
+    "tôi",
+    "toi",
+    "mình",
+    "minh",
+    "của tôi",
+    "cua toi",
+    "của mình",
+    "cua minh",
+    "my",
+)
+
+_OTHER_PERSON_STARTERS = (
+    "mẹ",
+    "me",
+    "ba",
+    "bố",
+    "bo",
+    "cha",
+    "mom",
+    "dad",
+    "boss",
+    "sếp",
+    "sep",
 )
 
 
@@ -130,15 +204,58 @@ def _infer_unknown_reason(message: str) -> str | None:
     return UNKNOWN_REASON_OTHER_PERSON
 
 
+def _infer_financial_question_subject_scope(message: str) -> str | None:
+    text = (message or "").strip()
+    if not text:
+        return None
+
+    lowered = text.lower()
+    if not any(term in lowered for term in _FINANCIAL_QUESTION_SCOPE_TERMS):
+        return None
+
+    if any(marker in lowered for marker in _AMBIGUOUS_FINANCIAL_SCOPE_MARKERS):
+        return SUBJECT_SCOPE_AMBIGUOUS
+
+    if any(marker in lowered for marker in _SELF_FINANCIAL_SCOPE_MARKERS):
+        return None
+
+    first_token = lowered.split()[0].strip("\"'()[]{}.,;:!?") if lowered.split() else ""
+    if _starts_with_third_person_name(text) or first_token in _OTHER_PERSON_STARTERS:
+        return SUBJECT_SCOPE_OTHER_PERSON
+
+    return None
+
+
+def _apply_financial_subject_scope_guard(
+    result: dict[str, Any], message: str
+) -> dict[str, Any]:
+    if result.get("intent") != INTENT_FINANCIAL_QUESTION:
+        return result
+
+    inferred_scope = _infer_financial_question_subject_scope(message)
+    if inferred_scope in {SUBJECT_SCOPE_OTHER_PERSON, SUBJECT_SCOPE_AMBIGUOUS}:
+        result["subject_scope"] = inferred_scope
+        result["sql"] = None
+
+    return result
+
+
 class ChatServiceError(Exception):
     pass
 
 
 def _build_user_categories_json(user: User) -> list[dict[str, Any]]:
     categories = list_user_categories(user=user)
+
+    def _normalize_uuid(val):
+        try:
+            return val.hex
+        except Exception:
+            return str(val).replace("-", "")
+
     return [
         {
-            "id": str(category.id),
+            "id": _normalize_uuid(category.id),
             "name": category.name,
             "type": category.type,
             "aliases": [],
@@ -295,7 +412,26 @@ def _validate_llm_output(raw_text: str, user: User) -> dict[str, Any]:
 
     if intent != INTENT_TRANSACTION_BATCH:
         if intent == INTENT_FINANCIAL_QUESTION:
-            return {"intent": intent, "sql": data.get("sql")}
+            subject_scope = data.get("subject_scope")
+            if subject_scope not in FINANCIAL_SUBJECT_SCOPES:
+                raise ChatServiceError("Invalid financial question subject_scope")
+
+            if subject_scope == SUBJECT_SCOPE_SELF:
+                sql = data.get("sql")
+                if not isinstance(sql, str) or not sql.strip():
+                    raise ChatServiceError("Missing SQL for self financial question")
+
+                return {
+                    "intent": intent,
+                    "subject_scope": subject_scope,
+                    "sql": sql.strip(),
+                }
+
+            return {
+                "intent": intent,
+                "subject_scope": subject_scope,
+                "sql": None,
+            }
         return {"intent": intent}
 
     actions = data.get("actions")
@@ -400,7 +536,12 @@ def _build_commit_message(parse_result: dict[str, object], created_count: int) -
         return "The information provided is too vague. Please enter more details."
 
     if intent == INTENT_FINANCIAL_QUESTION:
-        return "Day la cau hoi tai chinh. API nay chi ghi nhan giao dich."
+        subject_scope = parse_result.get("subject_scope")
+        if subject_scope == SUBJECT_SCOPE_OTHER_PERSON:
+            return FINANCIAL_OTHER_PERSON_MESSAGE
+        if subject_scope == SUBJECT_SCOPE_AMBIGUOUS:
+            return FINANCIAL_AMBIGUOUS_MESSAGE
+        return "This is a financial question."
 
     if intent == INTENT_GREETING:
         return "Xin chao! Hay nhap nội dung cần hỗ trợ ."
@@ -419,6 +560,7 @@ def parse_message(user: User, message: str) -> dict[str, Any]:
         message=message, system_instruction=system_instruction
     )
     result = _validate_llm_output(raw_text=raw_llm_output, user=user)
+    result = _apply_financial_subject_scope_guard(result, message)
 
     if result.get("intent") == INTENT_UNKNOWN:
         reason = _infer_unknown_reason(message)
@@ -475,6 +617,7 @@ def parse_message_for_commit(
         message=message, system_instruction=system_instruction
     )
     result = _validate_llm_output(raw_text=raw_llm_output, user=user)
+    # result = _apply_financial_subject_scope_guard(result, message)
 
     if result.get("intent") == INTENT_UNKNOWN:
         reason = _infer_unknown_reason(message)
@@ -594,53 +737,60 @@ def commit_parse_result(
 
     response_message = ""
     if parse_result.get("intent") == INTENT_FINANCIAL_QUESTION:
-        sql = parse_result.get("sql")
-        if not sql:
-            response_message = "I couldn't compile a query for your question."
+        subject_scope = parse_result.get("subject_scope")
+        if subject_scope == SUBJECT_SCOPE_OTHER_PERSON:
+            response_message = FINANCIAL_OTHER_PERSON_MESSAGE
+            status = "failed"
+        elif subject_scope == SUBJECT_SCOPE_AMBIGUOUS:
+            response_message = FINANCIAL_AMBIGUOUS_MESSAGE
             status = "failed"
         else:
-            try:
-                sanitized_sql = validate_and_sanitize_sql(
-                    sql, str(user.id).replace("-", "")
-                )
-                with connection.cursor() as cursor:
-                    cursor.execute(sanitized_sql)
-                    columns = (
-                        [col[0] for col in cursor.description]
-                        if cursor.description
-                        else []
-                    )
-                    rows = list(cursor.fetchall())
-
-                formatted_rows = []
-                for row in rows:
-                    formatted_row = []
-                    for item in row:
-                        if isinstance(item, Decimal):
-                            formatted_row.append(float(item))
-                        elif isinstance(item, (datetime, date)):
-                            formatted_row.append(item.isoformat())
-                        else:
-                            formatted_row.append(item)
-                    formatted_rows.append(formatted_row)
-
-                parse_result["query_result"] = {
-                    "columns": columns,
-                    "rows": formatted_rows,
-                    "sql": sanitized_sql,
-                }
-
-                response_msg, eval_step_info = evaluate_financial_data_with_llm(
-                    user_question=user_message, query_data=parse_result["query_result"]
-                )
-                response_message = response_msg
-                llm_calls.append(eval_step_info)
-            except Exception as exc:
-                response_message = (
-                    "An error occurred while compiling your request. Please try again."
-                )
-                parse_result["query_error"] = str(exc)
+            sql = parse_result.get("sql")
+            if not sql:
+                response_message = "I couldn't compile a query for your question."
                 status = "failed"
+            else:
+                try:
+                    sanitized_sql = validate_and_sanitize_sql(
+                        sql, str(user.id).replace("-", "")
+                    )
+                    with connection.cursor() as cursor:
+                        cursor.execute(sanitized_sql)
+                        columns = (
+                            [col[0] for col in cursor.description]
+                            if cursor.description
+                            else []
+                        )
+                        rows = list(cursor.fetchall())
+
+                    formatted_rows = []
+                    for row in rows:
+                        formatted_row = []
+                        for item in row:
+                            if isinstance(item, Decimal):
+                                formatted_row.append(float(item))
+                            elif isinstance(item, (datetime, date)):
+                                formatted_row.append(item.isoformat())
+                            else:
+                                formatted_row.append(item)
+                        formatted_rows.append(formatted_row)
+
+                    parse_result["query_result"] = {
+                        "columns": columns,
+                        "rows": formatted_rows,
+                        "sql": sanitized_sql,
+                    }
+
+                    response_msg, eval_step_info = evaluate_financial_data_with_llm(
+                        user_question=user_message,
+                        query_data=parse_result["query_result"],
+                    )
+                    response_message = response_msg
+                    llm_calls.append(eval_step_info)
+                except Exception as exc:
+                    response_message = "An error occurred while compiling your request. Please try again."
+                    parse_result["query_error"] = str(exc)
+                    status = "failed"
     else:
         response_message = _build_commit_message(
             parse_result, len(created_transactions)

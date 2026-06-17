@@ -14,6 +14,7 @@ from .serializers import (
     BalanceResponseSerializer,
     CashflowResponseSerializer,
     CreateTransactionSerializer,
+    FinancialHealthResponseSerializer,
     RecentTransactionsQuerySerializer,
     RecentTransactionsResponseSerializer,
     SpendingByCategoryResponseSerializer,
@@ -32,6 +33,7 @@ from .services import (
     create_transaction,
     delete_transaction,
     get_dashboard_summary,
+    get_financial_health_score,
     get_transaction,
     update_transaction,
 )
@@ -89,6 +91,62 @@ class DashboardSummaryView(APIView):
 
         return success_response(
             result=summary_result, code=1000, status_code=status.HTTP_200_OK
+        )
+
+
+class FinancialHealthScoreView(APIView):
+    authentication_classes = [JwtAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Financial Health Score",
+        description=(
+            "Calculate a 0-100 financial health score for the provided month/year. "
+            "Savings contributes 60%, with a 20% savings rate receiving the "
+            "maximum component score. Budget compliance contributes 40%, "
+            "calculated as 100 minus the percentage of budget categories exceeded."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="month",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Month (1-12). Must be used together with year.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="year",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Year (e.g. 2026). Must be used together with month.",
+                required=False,
+            ),
+        ],
+        responses={200: FinancialHealthResponseSerializer},
+        tags=["Dashboard"],
+    )
+    def get(self, request: Request):
+        query_serializer = TransactionSummaryQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            return error_response(
+                code=5001,
+                message="Invalid query parameters",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        month, year = _get_month_year_from_validated_data(
+            query_serializer.validated_data
+        )
+        result = get_financial_health_score(
+            request.user,
+            month=month,
+            year=year,
+        )
+
+        return success_response(
+            result=result,
+            code=1000,
+            status_code=status.HTTP_200_OK,
         )
 
 
