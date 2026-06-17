@@ -244,14 +244,15 @@ class ChatServiceError(Exception):
     pass
 
 
+def _normalize_uuid(value: Any) -> str:
+    try:
+        return value.hex
+    except Exception:
+        return str(value).replace("-", "").lower()
+
+
 def _build_user_categories_json(user: User) -> list[dict[str, Any]]:
     categories = list_user_categories(user=user)
-
-    def _normalize_uuid(val):
-        try:
-            return val.hex
-        except Exception:
-            return str(val).replace("-", "")
 
     return [
         {
@@ -355,7 +356,7 @@ def _validate_action(
     if action["kind"] != "record_transaction":
         raise ChatServiceError("Invalid action kind")
 
-    category_id = str(action["category_id"])
+    category_id = _normalize_uuid(action["category_id"])
     if category_id not in user_categories:
         raise ChatServiceError("Invalid category_id in action")
 
@@ -439,7 +440,8 @@ def _validate_llm_output(raw_text: str, user: User) -> dict[str, Any]:
         raise ChatServiceError("actions must be a list for transaction_batch")
 
     user_categories = {
-        str(category.id): category.type for category in list_user_categories(user=user)
+        _normalize_uuid(category.id): category.type
+        for category in list_user_categories(user=user)
     }
     validated_actions = [
         _validate_action(action, user_categories)
