@@ -44,6 +44,44 @@ from .selector import (
 )
 
 
+def _order_parse_result(parse_result: dict) -> dict:
+    if not isinstance(parse_result, dict):
+        return parse_result
+
+    ordered = {}
+    preferred_keys = (
+        "intent",
+        "subject_scope",
+        "sql",
+        "query_result",
+        "query_error",
+        "actions",
+        "rejected_actions",
+        "reason",
+    )
+
+    for key in preferred_keys:
+        if key in parse_result:
+            ordered[key] = parse_result[key]
+
+    for key, value in parse_result.items():
+        if key not in ordered:
+            ordered[key] = value
+
+    return ordered
+
+
+def _format_admin_metadata(metadata: dict) -> dict:
+    if not isinstance(metadata, dict):
+        return metadata
+
+    formatted = dict(metadata)
+    if "parse_result" in formatted:
+        formatted["parse_result"] = _order_parse_result(formatted["parse_result"])
+
+    return formatted
+
+
 class ChatParseView(APIView):
     authentication_classes = [JwtAuthentication]
     permission_classes = [IsAuthenticated]
@@ -501,7 +539,7 @@ class AdminAIRequestDetailView(APIView):
             "user_email": msg.user.email,
             "user_message": find_related_user_message_content(msg),
             "assistant_message": msg.content,
-            "metadata": msg.metadata or {},
+            "metadata": _format_admin_metadata(msg.metadata or {}),
             "created_at": msg.created_at,
         }
         return success_response(

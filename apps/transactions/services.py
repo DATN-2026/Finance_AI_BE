@@ -4,6 +4,10 @@ from typing import Optional
 
 from django.db import IntegrityError
 
+from apps.budgets.selector import (
+    get_monthly_budget_compliance,
+    get_monthly_budget_totals,
+)
 from apps.categories.selector import get_category_by_id
 from apps.users.models import User
 
@@ -163,6 +167,144 @@ def get_dashboard_summary(user: User, month: int, year: int) -> dict[str, object
             current=current_totals["balance"],
             previous=previous_totals["balance"],
         ),
+    }
+
+
+def _component_status(score: Optional[int]) -> str:
+    if score is None:
+        return "no_data"
+    if score >= 60:
+        return "good"
+    if score >= 40:
+        return "warning"
+    return "poor"
+
+
+def _financial_health_level(score: int, has_data: bool) -> tuple[str, str]:
+    if not has_data:
+        return "no_data", "Not enough data"
+    if score >= 80:
+        return "excellent", "Excellent financial health"
+    if score >= 60:
+        return "good", "Good financial health"
+    if score >= 40:
+        return "fair", "Fair financial health"
+    return "poor", "Poor financial health"
+
+
+def _round_score(value: Decimal) -> int:
+    clamped = min(max(value, Decimal("0")), Decimal("100"))
+    return int(clamped.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def get_financial_health_score(user: User, month: int, year: int) -> dict[str, object]:
+    transaction_totals = get_monthly_transaction_totals(
+        user=user,
+        month=month,
+        year=year,
+    )
+    budget_totals = get_monthly_budget_totals(
+        user=user,
+        month=month,
+        year=year,
+    )
+    budget_compliance = get_monthly_budget_compliance(
+        user=user,
+        month=month,
+        year=year,
+    )
+
+    income = _to_money(transaction_totals["income"])
+    expenses = _to_money(transaction_totals["expenses"])
+    balance = _to_money(transaction_totals["balance"])
+
+    savings_rate = None
+    savings_score = None
+    if income > Decimal("0.00"):
+        savings_rate_decimal = ((balance / income) * Decimal("100")).quantize(
+            Decimal("0.1"),
+            rounding=ROUND_HALF_UP,
+        )
+        savings_rate = float(savings_rate_decimal)
+        savings_score = _round_score(
+            (savings_rate_decimal / Decimal("20")) * Decimal("100")
+        )
+        print(f"Savings Score: {savings_score}")
+    elif expenses > Decimal("0.00"):
+        savings_score = 0
+
+    total_budget = _to_money(budget_totals["total_budget"])
+    total_spent = _to_money(budget_totals["total_spent"])
+    total_budget_categories = budget_compliance["total_budget_categories"]
+    over_budget_categories_count = budget_compliance["over_budget_categories_count"]
+
+    usage_percent = None
+    if total_budget > Decimal("0.00"):
+        usage_percent = float(
+            ((total_spent / total_budget) * Decimal("100")).quantize(
+                Decimal("0.1"),
+                rounding=ROUND_HALF_UP,
+            )
+        )
+
+    over_budget_rate = None
+    budget_score = None
+    if total_budget_categories > 0:
+        over_budget_rate_decimal = (
+            Decimal(over_budget_categories_count)
+            / Decimal(total_budget_categories)
+            * Decimal("100")
+        ).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+        over_budget_rate = float(over_budget_rate_decimal)
+        budget_score = _round_score(Decimal("100") - over_budget_rate_decimal)
+
+    weighted_components: list[tuple[int, Decimal]] = []
+    if savings_score is not None:
+        weighted_components.append((savings_score, Decimal("0.60")))
+    if budget_score is not None:
+        weighted_components.append((budget_score, Decimal("0.40")))
+
+    has_data = bool(weighted_components)
+    score = 0
+    if has_data:
+        weighted_total = sum(
+            Decimal(component_score) * weight
+            for component_score, weight in weighted_components
+        )
+        available_weight = sum(weight for _, weight in weighted_components)
+        score = _round_score(weighted_total / available_weight)
+
+    level, label = _financial_health_level(score=score, has_data=has_data)
+
+    return {
+        "period": {"month": month, "year": year},
+        "score": score,
+        "level": level,
+        "label": label,
+        "components": {
+            "savings": {
+                "available": savings_score is not None,
+                "score": savings_score,
+                "weight": 0.60,
+                "income": income,
+                "expenses": expenses,
+                "balance": balance,
+                "savings_rate": savings_rate,
+                "status": _component_status(savings_score),
+            },
+            "budget": {
+                "available": budget_score is not None,
+                "score": budget_score,
+                "weight": 0.40,
+                "total_budget": total_budget,
+                "total_spent": total_spent,
+                "usage_percent": usage_percent,
+                "total_budget_categories": total_budget_categories,
+                "over_budget_categories_count": over_budget_categories_count,
+                "over_budget_rate": over_budget_rate,
+                "status": _component_status(budget_score),
+            },
+        },
     }
 
 

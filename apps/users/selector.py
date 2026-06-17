@@ -4,7 +4,7 @@ from typing import Optional
 from uuid import UUID
 import calendar
 
-from django.db.models import Q, QuerySet, Sum
+from django.db.models import Count, Q, QuerySet, Sum
 
 from .models import User
 
@@ -61,6 +61,15 @@ def list_all_users(
     qs = qs.order_by(order_field)
 
     return qs
+
+
+def get_user_list_stats() -> dict[str, int]:
+    return User.objects.aggregate(
+        total_users=Count("id"),
+        total_active=Count("id", filter=Q(status="active")),
+        total_inactive=Count("id", filter=Q(status="inactive")),
+        total_admins=Count("id", filter=Q(role="admin")),
+    )
 
 
 def get_user_usage_stats(

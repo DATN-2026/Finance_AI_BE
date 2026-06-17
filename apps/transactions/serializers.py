@@ -107,6 +107,54 @@ class TransactionSummaryResponseSerializer(serializers.Serializer):
     result = TransactionSummaryResultSerializer()
 
 
+class FinancialHealthSavingsSerializer(serializers.Serializer):
+    available = serializers.BooleanField()
+    score = serializers.IntegerField(allow_null=True)
+    weight = serializers.FloatField()
+    income = serializers.DecimalField(max_digits=15, decimal_places=2)
+    expenses = serializers.DecimalField(max_digits=15, decimal_places=2)
+    balance = serializers.DecimalField(max_digits=15, decimal_places=2)
+    savings_rate = serializers.FloatField(allow_null=True)
+    status = serializers.ChoiceField(
+        choices=["good", "warning", "poor", "no_data"]
+    )
+
+
+class FinancialHealthBudgetSerializer(serializers.Serializer):
+    available = serializers.BooleanField()
+    score = serializers.IntegerField(allow_null=True)
+    weight = serializers.FloatField()
+    total_budget = serializers.DecimalField(max_digits=15, decimal_places=2)
+    total_spent = serializers.DecimalField(max_digits=15, decimal_places=2)
+    usage_percent = serializers.FloatField(allow_null=True)
+    total_budget_categories = serializers.IntegerField()
+    over_budget_categories_count = serializers.IntegerField()
+    over_budget_rate = serializers.FloatField(allow_null=True)
+    status = serializers.ChoiceField(
+        choices=["good", "warning", "poor", "no_data"]
+    )
+
+
+class FinancialHealthComponentsSerializer(serializers.Serializer):
+    savings = FinancialHealthSavingsSerializer()
+    budget = FinancialHealthBudgetSerializer()
+
+
+class FinancialHealthResultSerializer(serializers.Serializer):
+    period = SummaryPeriodSerializer()
+    score = serializers.IntegerField(min_value=0, max_value=100)
+    level = serializers.ChoiceField(
+        choices=["excellent", "good", "fair", "poor", "no_data"]
+    )
+    label = serializers.CharField()
+    components = FinancialHealthComponentsSerializer()
+
+
+class FinancialHealthResponseSerializer(serializers.Serializer):
+    code = serializers.IntegerField(default=1000)
+    result = FinancialHealthResultSerializer()
+
+
 class CashflowPeriodSerializer(serializers.Serializer):
     period = SummaryPeriodSerializer()
     income = serializers.DecimalField(max_digits=15, decimal_places=2)

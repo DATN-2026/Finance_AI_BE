@@ -12,13 +12,18 @@ from .admin_serializers import (
     AdminUserCategoryResponseSerializer,
     CreateDefaultCategorySerializer,
     DefaultCategoryListQuerySerializer,
+    DefaultCategoryListSuccessResponseSerializer,
     DefaultCategoryResponseSerializer,
     DefaultCategorySuccessResponseSerializer,
     SyncDefaultCategoriesSerializer,
     SyncDefaultCategoriesSuccessResponseSerializer,
     UpdateDefaultCategorySerializer,
 )
-from .selector import list_admin_user_categories, list_default_categories
+from .selector import (
+    get_default_category_list_stats,
+    list_admin_user_categories,
+    list_default_categories,
+)
 from .services import (
     ERR_DEFAULT_CATEGORY_EXISTS,
     ERR_DEFAULT_CATEGORY_NOT_FOUND,
@@ -98,9 +103,7 @@ class AdminDefaultCategoryListCreateView(APIView):
             *PAGINATION_PARAMS,
         ],
         responses={
-            200: PaginationHelper.get_paginated_response_serializer(
-                DefaultCategoryResponseSerializer
-            )
+            200: DefaultCategoryListSuccessResponseSerializer
         },
         tags=["Admin Category Management"],
     )
@@ -131,6 +134,7 @@ class AdminDefaultCategoryListCreateView(APIView):
             paginated_result["items"],
             many=True,
         ).data
+        paginated_result["stats"] = get_default_category_list_stats()
 
         return success_response(
             result=paginated_result,

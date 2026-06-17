@@ -173,6 +173,26 @@ def build_error_groups(request_qs: QuerySet[AIChatMessage]) -> list[dict[str, An
             add_error("query_error", str(query_error), msg.created_at)
             has_specific_error = True
 
+        # Bổ sung tại đây
+        intent = parse_result.get("intent")
+        subject_scope = parse_result.get("subject_scope")
+
+        if intent == "financial_question":
+            if subject_scope == "other_person":
+                add_error(
+                    "financial_scope_other_person",
+                    "The request asks about another person's financial data.",
+                    msg.created_at,
+                )
+                has_specific_error = True
+            elif subject_scope == "ambiguous":
+                add_error(
+                    "financial_scope_ambiguous",
+                    "The owner of the requested financial data is ambiguous.",
+                    msg.created_at,
+                )
+                has_specific_error = True
+
         for rejected in parse_result.get("rejected_actions") or []:
             if not isinstance(rejected, dict):
                 continue
