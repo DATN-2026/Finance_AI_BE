@@ -546,7 +546,7 @@ def _build_commit_message(parse_result: dict[str, object], created_count: int) -
         return "This is a financial question."
 
     if intent == INTENT_GREETING:
-        return "Xin chao! Hay nhap nội dung cần hỗ trợ ."
+        return "Hello! Please enter your support request."
 
     return "The information provided is too vague. Please enter more details."
 
@@ -896,7 +896,10 @@ YÊU CẦU TRẢ LỜI:
 - CHÈN khoảng thời gian đã tính toán vào câu mở đầu nếu phù hợp.
 - KHÔNG hiển thị cấu trúc JSON, mảng (array) hay mã SQL cho người dùng. Hãy trình bày đẹp mắt dưới dạng danh sách hoặc đoạn văn tự nhiên. 
 - Nếu 'Query Result' rỗng (không có dữ liệu/rows rỗng), hãy thông báo khéo léo rằng không có giao dịch hoặc số liệu nào khớp với yêu cầu tìm kiếm của người dùng trong khoảng thời gian đó.
-- Trả lời bằng ngôn ngữ Tiếng Anh.
+- Trả lời bằng cùng ngôn ngữ mà người dùng sử dụng trong câu hỏi.
+- Nếu người dùng hỏi bằng Tiếng Việt thì trả lời bằng Tiếng Việt.
+- Nếu người dùng hỏi bằng Tiếng Anh thì trả lời bằng Tiếng Anh.
+- Không tự ý chuyển sang ngôn ngữ khác nếu người dùng không yêu cầu.
 - Giữ văn phong lịch sự, ngắn gọn. Nếu phù hợp, có thể đưa ra một nhận xét hoặc lời khuyên tài chính nho nhỏ dựa trên dữ liệu.
 """
 
@@ -921,5 +924,6 @@ YÊU CẦU TRẢ LỜI:
     return raw_llm_output.strip(" \n\r\"'"), step_info
 
 
+# - Trả lời bằng ngôn ngữ Tiếng Anh.
 # - NẾU câu hỏi của người dùng có đề cập đến khoảng thời gian (ví dụ: "tháng này", "3 tháng trước", "trong năm nay"), BẠN PHẢI TÍNH TOÁN và XÁC ĐỊNH chính xác khoảng thời gian đó (ngày tháng bắt đầu/kết thúc) dựa vào 'Thời gian hiện tại' và CHÈN KHOẢNG THỜI GIAN ĐÓ vào câu mở đầu của câu trả lời.
 #   (Ví dụ: "Dưới đây là 5 khoản chi tiêu lớn nhất của bạn trong 3 tháng qua (từ tháng 10/2025 đến tháng 01/2026):" hoặc "Here are your top 5 expenses over the past 3 months (from October 15, 2025, to January 15, 2026):").
